@@ -1,0 +1,8 @@
+# Local IDE settings and generated build output.
+.idea/
+/build/
+/out/
+# Runtime identity and logs must stay local.
+/data/
+/logs/
+*.key

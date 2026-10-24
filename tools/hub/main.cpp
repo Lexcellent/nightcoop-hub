@@ -198,7 +198,8 @@ bool WriteNewSecret(const std::string& aPath, std::string& aText, const char* aW
     }
 #ifdef _WIN32
     const bool written = _write(fd, aText.data(), static_cast<unsigned>(aText.size())) == static_cast<int>(aText.size());
-    _close(fd);
+    const bool flushed = written && _commit(fd) == 0;
+    const bool closed = _close(fd) == 0;
 #else
     // Mode 0600 under any umask; on disk before saying "done"
     const bool written = fchmod(fd, 0600) == 0 && write(fd, aText.data(), aText.size()) == static_cast<ssize_t>(aText.size()) &&
@@ -206,7 +207,11 @@ bool WriteNewSecret(const std::string& aPath, std::string& aText, const char* aW
     close(fd);
 #endif
     crypto_wipe(aText.data(), aText.size());
+#ifdef _WIN32
+    if (!flushed || !closed)
+#else
     if (!written)
+#endif
     {
         std::printf("cannot write %s: %s — the file is left as it is: delete it and try again\n", aPath.c_str(),
                     std::strerror(errno));
@@ -1063,6 +1068,10 @@ void RunShard(nc::HubServer& aHub, const Options& aOptions, const std::string& a
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    // The program's messages are UTF-8, including when launched from PowerShell.
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
     uint16_t port = 47800;
